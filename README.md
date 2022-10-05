@@ -3,25 +3,25 @@
 ### Tobias Wecht
 
 
-## Zielsetzung
-Ziel dieses Projekts ist es, zu zeigen, wie man RabbitMQ in Spring integriert und konfiguriert. Weiters soll gezeigt werden wie man mit Spring-Services Nachrichten an eine Exchange senden , bzw. Nachrichten von Queues empfangen kann. Dabei wird sowohl das Publish-Subscribe, als auch das Worker-Pattern umgesetzt, um für beide Problemstellungen gewappnet zu sein.
+## Objectives
+The aim of this project is to show how to integrate and configure RabbitMQ in Spring. Furthermore, it will be shown how to send messages to an exchange with Spring services and how to receive messages from queues. Both the publish-subscribe and the worker pattern will be implemented in order to be prepared for both problems.
 
-## Architektur
+## Architecture
 ![alt text](/pictures/architecture.jpg)
 RabbitMQ - Server: http://localhost:15672
 
 Producer:
-Es wurde ein Producer Service implementiert, dass den Input der Clients(Producer-Skripts / Simulation von IoT-Devices) an die Exchanges des RabbitMQ Servers sendet. Weiters wurden Exchanges, Queues und Bindings in diesem Service definiert.
+A producer service was implemented that sends the input of the clients (producer scripts / simulation of IoT devices) to the RabbitMQ server's exchanges. Furthermore, exchanges, queues and bindings were defined in this service.
 
 Producer Service Endpoints: 
 <br>
-http://localhost:8080/api/publish sendet Requests an die Topic Exchange
+http://localhost:8080/api/publish sends requests to the Topic Exchange
 <br>
-http://localhost:8080/api/broadcast sendet Requests an die Fanout Exchange
+http://localhost:8080/api/broadcast sends requests to the fanout exchange
 
 
 Consumer:
-Es wurden zwei Arten von Consumer implementiert. Ein Logging Service, dass die Nachrichten der Logging-Queue auf der Console ausgibt und ein Worker Service, das beliebig oft repliziert werden kann und die Nachrichten der Clac-Queue in einer MySQL Datenbank persistiert.
+Two types of consumer were implemented. A logging service that outputs the messages of the logging queue on the console and a worker service that can be replicated as often as desired and persists the messages of the clac queue in a MySQL database.
 
 Consumer Services Endpoints: 
 <br>
@@ -29,7 +29,7 @@ consumer-log-service: http://localhost:7777/
 <br>
 consumer-calc-persist-service: http://localhost/ - Port is random to start multiple instances.<br>
 
-## Umsetzung
+## Implementation
 
 ### RabbitMQ Config in Spring
 Definition von Exchanges und Queues
@@ -56,7 +56,7 @@ public FanoutExchange fanoutExchange() {
 ```
 
 
-Bindings setzen
+Set bindings
 ```java
 @Bean
 public Binding topicBinding(Queue topicQueue, TopicExchange exchange) {
@@ -68,7 +68,7 @@ public Binding fanoutBinding(Queue fanoutQueue, FanoutExchange exchange) {
     return BindingBuilder.bind(fanoutQueue).to(exchange);
 }
 ```
-Message Converter setzten:
+Set Message Converter:
 ```java
 @Bean
 public MessageConverter messageConverter() {
@@ -106,12 +106,11 @@ public ResponseEntity broadcast(Integer number){
 
 Manual Acknowledge Worker (consumer-calc-persist)
 
-Um manuell Nachrichten zu bestätigen, muss in der Konfiguration von Spring folgender Eintrag ergänzt werden.
+To manually confirm messages, the following entry must be added to the Spring configuration.
 ```properties
 spring.rabbitmq.listener.simple.acknowledge-mode=manual
 ```
-
-Dieser Worker reagiert auf Nachrichten in der Calc-Queue und speichert die empfangenen Measurements in der Datenbank. Ist dies geschehen, wird RabbitMQ mitgeteilt, dass die Nachricht erfolgreich verarbeitet wurde mit ```java channel.basicAck(tag, false) ```.
+This worker responds to messages in the calc queue and stores the received measurements in the database. Once this is done, RabbitMQ is informed that the message has been successfully processed with ```java channel.basicAck(tag, false) ```.
 ```java
 @RabbitListener(queues = {MQConfig.TOPIC_QUEUE})
 public void listen(Measurement measurement, Channel channel,
@@ -124,7 +123,7 @@ public void listen(Measurement measurement, Channel channel,
 
 Auto Acknowledge Worker (consumer-log)
 
-Dieser Worker reagiert auf Nachrichten in der Fanout-Queue und schreibt die erhaltene Nachricht einfach auf die Konsole aus. Hier wird der Acknowledge-Mode "AUTO" verwendet, welcher bei Spring standardmäßig verwendet wird. Dieser schickt ein Acknowledge an RabbitMQ, wenn die "Listener-Methode" ohne Exception ausgeführt wurde.
+This worker reacts to messages in the fanout queue and simply writes out the received message to the console. The acknowledge mode "AUTO" is used here, which is used by default in Spring. This sends an acknowledge to RabbitMQ if the "listener method" was executed without an exception.
 ```java
 @RabbitListener(queues = MQConfig.FANOUT_QUEUE)
 public void listen(Measurement measurement){
@@ -134,11 +133,12 @@ public void listen(Measurement measurement){
 
 
 
-## Ergebnis
-Beim Senden von Request and den /publish Endpoint des Provider Service und die darauffolgenden Weiterleitung an die Topic Exchange von RabbitMQ, werden die Nachrichten auf die Worker(Persist) Services aufgeteilt, jedoch nicht an den Logging Service gesendet.<br>
+## Result
+When sending a request to the /publish endpoint of the Provider Service and then forwarding it to the Topic Exchange of RabbitMQ, the messages are split between the Worker(Persist) Services but not sent to the Logging Service.<br>.
+
 
 Beispiel:<br>
-.\start.ps1 -workers 3     //startet gesamtes System mit 3 Worker<br>
+.\start.ps1 -workers 3     //starts entire system with 3 workers<br>
 .\producer.ps1 -mode 1 -runs 6   // mode 1 == publish <br>
 
 
@@ -151,11 +151,11 @@ Worker 3:<br>
 ![alt text](/pictures/pub_3_1.jpg)<br>
 ![alt text](/pictures/pub_3.JPG)<br>
 
-Sollen nun alle Queues eine Nachricht bekommen muss diese über den /broadcast Endpoint des Provider Services gesendet und an die Fanout Exchange des RabbitMQ weitergeleitet werden.
-Die Fanout Exchange leitet die Nachricht an alle binded Queues weiter und somit erhält auch das Logging Service die Nachrichten.
+If all queues are to receive a message, it must be sent via the /broadcast endpoint of the provider service and forwarded to the RabbitMQ fanout exchange.
+The fanout exchange forwards the message to all bound queues and thus the logging service also receives the messages.
 
-Beispiel:<br>
-.\start.ps1 //startet gesamtes System mit einem Worker<br>
+Example:<br>
+.\start.ps1 //starts entire system with one worker<br>
 .\producer.ps1 -mode 2 -runs 6   // mode 2 == broadcast <br>
 
 ![alt text](/pictures/send_broad.jpg)<br>
@@ -165,13 +165,13 @@ Persist Service (Worker):<br>
 ![alt text](/pictures/broad_persist.jpg)<br>
 
 ## Conclusion
-Das Aufsetzen von RabbitMQ mit Docker und das Erstellen von Exchanges und Queues in Spring gestaltete, sich problemlos. Vorallem in den Consumer war für die Integration von RabbitMQ kaum eine Konfiguration notwendig und konnte elegant mit Annotation gelöst werden. RabbitMQs Stärke sehen wir, wie schon der Solgan "Messaging that just works" verspricht, in der simplen Verteilen von Aufgaben, die perfekt in eine Microservice-Architektur eingebunden werden kann. Es eignet sich sowohl für Publish-Subscribe- als auch Multiple-Worker-Szenarien.
+Setting up RabbitMQ with Docker and creating exchanges and queues in Spring went smoothly. Especially in the consumer, hardly any configuration was necessary for the integration of RabbitMQ and it could be elegantly solved with annotation. We see RabbitMQ's strength, as the slogan "Messaging that just works" promises, in the simple distribution of tasks, which can be perfectly integrated into a microservice architecture. It is suitable for both publish-subscribe and multiple-worker scenarios.
 
-## Installationsanleitung
-Das start.ps1 Skript ausführen, dieses baut die Jars der Web Services und führt anschließend das docker-compose aus.
+## Installation guide
+Run the start.ps1 script, this builds the web services jars and then runs the docker-compose.
 
 
-Start Skript:
+Start Script:
 <br>
 .\start.ps1
 
