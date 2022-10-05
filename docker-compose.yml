@@ -1,0 +1,66 @@
+version: '3.1'
+services:
+  calc-db:
+    image: mysql:latest
+    volumes:
+      - "./init.sql:/data/application/init.sql"
+      - "./.mysql-data/db:/var/lib/mysql"
+    restart: always
+    ports:
+      - 3306:3306
+    container_name: calc-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: root
+      MYSQL_USER: user
+      MYSQL_PASSWORD: user
+    command: --init-file /data/application/init.sql
+    networks:
+      - db_net
+
+  consumer-calc-persist-service:
+    depends_on:
+      - calc-db
+    build:
+      context: ../mom-mom-pichler-wecht/consumer-calc-persist
+    image: consumer_calc_persist_service
+    #container_name: consumer-calc-persist-service
+    networks:
+      - services_net
+      - db_net
+
+
+  consumer-log-service:
+    build:
+      context: ../mom-mom-pichler-wecht/consumer-log
+    image: consumer_log_service
+    container_name: consumer-log-service
+    ports:
+      - 7777:7777
+    networks:
+      - services_net
+
+  producer-service:
+    build:
+      context: ../mom-mom-pichler-wecht/producer-service
+    image: producer_service
+    container_name: producer-service
+    ports:
+      - 8080:8080
+    networks:
+      - services_net
+
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - services_net
+
+networks:
+  db_net:
+    driver: bridge
+  services_net:
+    driver: bridge
